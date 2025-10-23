@@ -1,0 +1,25 @@
+{
+  "name": "test",
+  "tables": {
+    "utilisateurs": {
+      "name": "utilisateurs",
+      "schema": {
+        "id": "int",
+        "nom": "str",
+        "email": "str",
+        "age": "int"
+      },
+      "primary_key": "id"
+    },
+    "articles": {
+      "name": "articles",
+      "schema": {
+        "id": "int",
+        "titre": "str",
+        "contenu": "str",
+        "auteur_id": "int"
+      },
+      "primary_key": "id"
+    }
+  }
+}

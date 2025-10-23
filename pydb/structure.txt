@@ -1,0 +1,10 @@
+# Structure des fichiers:
+# pydb/
+#   __init__.py
+#   database.py     # Gestion de la base de données
+#   table.py        # Gestion des tables
+#   relation.py     # Gestion des relations
+#   query.py        # Traitement des requêtes
+#   storage.py      # Stockage et persistance
+#   cli.py          # Interface de ligne de commande
+#   main.py         # Point d'entrée du programme

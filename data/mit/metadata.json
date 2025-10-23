@@ -1,0 +1,15 @@
+{
+  "name": "mit",
+  "tables": {
+    "utilisateurs": {
+      "name": "utilisateurs",
+      "schema": {
+        "id": "int",
+        "nom": "str",
+        "email": "str",
+        "age": "int"
+      },
+      "primary_key": "id"
+    }
+  }
+}
