@@ -8,4 +8,4 @@ data = {
 }
 
 df = pd.DataFrame(data)
-print(df.sort_values(by="nom"))
+print(df.sort_values(by="Nom"))
