@@ -224,6 +224,22 @@ class Table:
             value = value.strip() #enlver espace qui peut causer une erreur au type du nombre
             if expected_type == 'int' and (value.isdigit() or value.lstrip('-').isdigit()):
                 converted_args[field] = int(value)
+            elif expected_type == 'float':#si float,on transforme en float
+                try:
+                    converted_args[field] = float(value)
+                except ValueError:
+                    raise ValueError(f"Le champ '{field}' doit être un nombre décimal")
+            elif expected_type == 'str':
+                if (value.startswith('"') and value.endswith('"')) or \
+                    (value.startswith("'") and value.endswith("'")):
+                    converted_args[field] = value[1:-1]
+                else:
+                    converted_args[field] = value
+            elif expected_type == 'datetime':
+                try:
+                    converted_args[field] = datetime.fromisoformat(value)
+                except ValueError:
+                    raise ValueError(f"Le champ '{field}' doit être au format ISO (YYYY-MM-DDTHH:MM:SS)")
             else:
                 converted_args[field] = value
 

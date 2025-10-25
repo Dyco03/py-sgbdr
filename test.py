@@ -1,11 +1,6 @@
-import re
+import shlex
 
-query = "CREATE TABLE etudiants (id INT, nom TEXT);"
-pattern = r'CREATE\s+TABLE\s+\w+\s*\((.*)\);'
+args_str = 'age = 32, name = john'
+result = shlex.split(args_str.replace(',', ' , ').replace('(', ' ( ').replace(')', ' ) '))
 
-match = re.match(pattern, query, re.IGNORECASE)
-
-if match:
-    print("Match complet :", match.group())
-    print("Nom de table  :", match.group(1))
-    print("Colonnes      :", match.group(2))
+print(result)

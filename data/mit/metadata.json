@@ -10,6 +10,17 @@
         "age": "int"
       },
       "primary_key": "id"
+    },
+    "voiture": {
+      "name": "voiture",
+      "schema": {
+        "plaque": "int",
+        "nom": "str",
+        "email": "str",
+        "age": "int",
+        "id": "int"
+      },
+      "primary_key": "id"
     }
   }
 }

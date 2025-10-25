@@ -20,6 +20,16 @@
         "auteur_id": "int"
       },
       "primary_key": "id"
+    },
+    "users": {
+      "name": "users",
+      "schema": {
+        "id": "int",
+        "nom": "str",
+        "email": "str",
+        "age": "float"
+      },
+      "primary_key": "id"
     }
   }
 }

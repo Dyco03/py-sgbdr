@@ -153,7 +153,7 @@ class QueryParser:
             
             # Parser la clause SET
             updates = {}
-            for item in self._split_args(set_clause):
+            for item in set_clause.split(','):
                 parts = item.split('=', 1)
                 if len(parts) != 2:
                     return {"error": f"Clause SET invalide: {item}"}

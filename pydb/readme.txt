@@ -41,6 +41,25 @@ Requêtes avec conditions WHERE
 Sauvegarde et restauration des données
 Interface en ligne de commande similaire à SQL
 
+Fonctionnalités ajoutées :
+
+INNER JOIN : Retourne seulement les lignes qui ont des correspondances dans les deux tables
+LEFT JOIN : Retourne toutes les lignes de la table de gauche, avec NULL pour les non-correspondances à droite
+RIGHT JOIN : Retourne toutes les lignes de la table de droite, avec NULL pour les non-correspondances à gauche
+
+[
+    SELECT * FROM table1 INNER JOIN table2 ON table1.champ1 = table2.champ2;
+    SELECT * FROM table1 LEFT JOIN table2 ON table1.champ1 = table2.champ2;
+    SELECT * FROM table1 RIGHT JOIN table2 ON table1.champ1 = table2.champ2;
+]
+
+Fonctionnalités supportées avec JOIN
+
+SELECT avec champs spécifiques : SELECT table1.nom, table2.titre FROM ...
+WHERE : Filtrer les résultats après la jointure
+ORDER BY : Trier les résultats
+LIMIT : Limiter le nombre de résultats
+
 
 Limitations et améliorations possibles
 
