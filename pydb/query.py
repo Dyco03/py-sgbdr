@@ -1,6 +1,7 @@
 # query.py
 import re
 import shlex
+import pandas as pd
 
 class QueryParser:
     def __init__(self, database):
@@ -150,113 +151,137 @@ class QueryParser:
             return {"success": f"Enregistrement inséré avec l'ID {pk}"}
         except Exception as e:
             return {"error": str(e)}
-    
+
     def _execute_update(self, match):
-        """Exécute une commande UPDATE."""
+        """Exécute une commande UPDATE en utilisant pandas."""
         table_name = match.group(1)
         set_clause = match.group(2)
         where_clause = match.group(3)
-        
+
         try:
+            # Charger la table dans un DataFrame
             table = self.database.get_table(table_name)
-            
-            # Parser la clause SET
+            df = pd.DataFrame(table.data)  # table.data = liste de dicts
+
+            # ---- Parser la clause SET ----
             updates = {}
             for item in set_clause.split(','):
                 parts = item.split('=', 1)
                 if len(parts) != 2:
                     return {"error": f"Clause SET invalide: {item}"}
-                
                 col_name = parts[0].strip()
                 value = self._parse_value(parts[1].strip())
                 updates[col_name] = value
-            
-            # Parser la clause WHERE
-            conditions = self._parse_conditions(where_clause)
-            
-            # Récupérer les enregistrements à mettre à jour
-            records = table.select(conditions)
-            
-            if not records:
+
+            # ---- Construire le masque WHERE ----
+            if where_clause:
+                query_str = where_clause.replace("AND", "and").replace("OR", "or").replace("=", "==")
+                mask = df.eval(query_str)  # masque booléen pandas
+            else:
+                mask = pd.Series([True] * len(df))  # cree une serie de true pour toutes les lignes
+
+            # Vérifier s’il y a des lignes correspondantes
+            if not mask.any():
                 return {"error": "Aucun enregistrement trouvé correspondant aux conditions"}
-            
-            # Mettre à jour chaque enregistrement
-            for record in records:
-                table.update(record[table.primary_key], updates)
-            
-            return {"success": f"{len(records)} enregistrement(s) mis à jour"}
+
+            # ---- Appliquer les mises à jour ----
+            for col, val in updates.items():
+                df.loc[mask, col] = val
+
+            # ---- Écrire les changements dans la table originale ----
+            table.data = df.to_dict(orient="records")
+
+            return {"success": f"{mask.sum()} enregistrement(s) mis à jour"}
+
         except Exception as e:
             return {"error": str(e)}
+
     
     def _execute_delete(self, match):
-        """Exécute une commande DELETE FROM."""
+        """Exécute une commande DELETE FROM en utilisant pandas."""
         table_name = match.group(1)
         where_clause = match.group(2)
-        
+
         try:
+            # Charger la table dans un DataFrame
             table = self.database.get_table(table_name)
-            
-            # Si pas de clause WHERE, supprimer tous les enregistrements
+            df = pd.DataFrame(table.data)
+
+            # Si la table est vide
+            if df.empty:
+                return {"error": "Aucune donnée à supprimer"}
+
+            # ---- Si pas de WHERE  tout supprimer ----
             if not where_clause:
-                count = len(table.data)
-                table.data = []
+                count = len(df)
+                table.data = []  # vider complètement
                 table.indexes = {table.primary_key: {}}
                 table._save()
                 return {"success": f"{count} enregistrement(s) supprimé(s)"}
-            
-            # Parser la clause WHERE
-            conditions = self._parse_conditions(where_clause)
-            
-            # Récupérer les enregistrements à supprimer
-            records = table.select(conditions)
-            
-            if not records:
+
+            # ---- Construire le masque WHERE ----
+            query_str = where_clause.replace("AND", "and").replace("OR", "or").replace('=', '==')
+            mask = df.eval(query_str)  # lignes à supprimer
+
+            if not mask.any():
                 return {"error": "Aucun enregistrement trouvé correspondant aux conditions"}
-            
-            # Supprimer chaque enregistrement
-            for record in records:
-                table.delete(record[table.primary_key])
-            
-            return {"success": f"{len(records)} enregistrement(s) supprimé(s)"}
+
+            # ---- Supprimer les lignes correspondantes ----
+            df = df[~mask]  # supprime les lignes ou masque = true
+
+            # ---- Réécrire les données dans la table ----
+            table.data = df.to_dict(orient="records")
+            table._save()
+
+            return {"success": f"{mask.sum()} enregistrement(s) supprimé(s)"}
+
         except Exception as e:
             return {"error": str(e)}
+
     
     def _execute_select(self, match):
-        """Exécute une commande SELECT."""
+        """Exécute une commande SELECT en utilisant pandas."""
         fields_str = match.group(1)
         table_name = match.group(2)
         where_clause = match.group(3)
         order_by = match.group(4)
         limit = match.group(5)
-        
+
         try:
+            # Récupérer la table et la transformer en DataFrame
             table = self.database.get_table(table_name)
-            
-            # Parser les champs à sélectionner
-            if fields_str.strip() == '*':
-                fields = None  # Tous les champs
-            else:
-                fields = [field.strip() for field in fields_str.split(',')]
-            
-            # Parser la clause WHERE
-            conditions = self._parse_conditions(where_clause) if where_clause else None
-            
-            # Exécuter la requête SELECT
-            results = table.select(conditions, fields)
-            
+            df = pd.DataFrame(table.data) 
+
+            # Appliquer WHERE avec pandas
+            if where_clause:
+                # Remplacer AND/OR par leurs équivalents (query() les comprend)
+                query_str = where_clause.replace('AND', 'and').replace('OR', 'or').replace('=', '==')
+                df = df.query(query_str)
+
+            # Sélectionner les champs demandés
+            if fields_str.strip() != '*':
+                fields = [f.strip() for f in fields_str.split(',')]
+                df = df[fields]
+
             # Appliquer ORDER BY si présent
             if order_by:
-                field, *direction = order_by.strip().split()
-                reverse = direction and direction[0].upper() == 'DESC'
-                results.sort(key=lambda x: x.get(field), reverse=reverse)
-            
+                parts = order_by.strip().split()
+                field = parts[0]
+                ascending = not (len(parts) > 1 and parts[1].upper() == 'DESC')
+                df = df.sort_values(by=field, ascending=ascending)
+
             # Appliquer LIMIT si présent
             if limit:
-                results = results[:int(limit)]
-            
+                df = df.head(int(limit))
+
+            # Convertir le résultat en liste de dictionnaires
+            results = df.to_dict(orient='records')
+
             return {"data": results, "count": len(results)}
+
         except Exception as e:
             return {"error": str(e)}
+
     
     def _execute_create_relation(self, match):
         """Exécute une commande CREATE RELATION."""

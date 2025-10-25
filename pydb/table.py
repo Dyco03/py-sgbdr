@@ -1,4 +1,5 @@
 # table.py
+import pandas as pd
 import os
 import pickle
 from datetime import datetime
@@ -193,6 +194,8 @@ class Table:
                 results.append(filtered_record)
             else:
                 results.append(record.copy())
+                
+        print(results)
         
         return results
     

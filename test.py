@@ -1,11 +1,9 @@
 import pandas as pd
+df = pd.DataFrame([
+    {'nom': 'Alice', 'age': 25},
+    {'nom': 'Bob', 'age': 30}
+])
 
-# Création d’un petit tableau
-data = {
-    "Nom": ["Alice", "Bob", "Claire"],
-    "Âge": [25, 30, 27],
-    "Ville": ["Paris", "Lyon", "Marseille"]
-}
-
-df = pd.DataFrame(data)
-print(df.sort_values(by="Nom"))
+query_str = "age == 25 and nom == 'Alice'"
+mask = df.eval(query_str)
+print(df[mask])
