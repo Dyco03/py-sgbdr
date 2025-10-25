@@ -1,6 +1,11 @@
-import shlex
+import pandas as pd
 
-args_str = 'age = 32, name = john'
-result = shlex.split(args_str.replace(',', ' , ').replace('(', ' ( ').replace(')', ' ) '))
+# Création d’un petit tableau
+data = {
+    "Nom": ["Alice", "Bob", "Claire"],
+    "Âge": [25, 30, 27],
+    "Ville": ["Paris", "Lyon", "Marseille"]
+}
 
-print(result)
+df = pd.DataFrame(data)
+print(df.sort_values(by="nom"))
