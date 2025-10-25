@@ -4,11 +4,11 @@ PyDB> use my_database
 
 # Créer des tables
 PyDB (my_database)> CREATE TABLE utilisateurs (id INT PRIMARY KEY, nom TEXT, email TEXT, age INT);
-PyDB (my_database)> CREATE TABLE articles (id INT PRIMARY KEY, titre TEXT, contenu TEXT, auteur_id INT);
+PyDB (my_database)>     
 
 # Insérer des données
 PyDB (my_database)> INSERT INTO utilisateurs (nom, email, age) VALUES ('Jean Dupont', 'jean@example.com', 32);
-PyDB (my_database)> INSERT INTO utilisateurs (nom, email, age) VALUES ('Marie Martin', 'marie@example.com', 28);
+PyDB (my_database)>     
 PyDB (my_database)> INSERT INTO articles (titre, contenu, auteur_id) VALUES ('Premier article', 'Contenu du premier article', 1);
 
 # Sélectionner des données

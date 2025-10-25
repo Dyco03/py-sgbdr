@@ -1,0 +1,24 @@
+{
+  "name": "tmpdb",
+  "tables": {
+    "users": {
+      "name": "users",
+      "schema": {
+        "uid": "int",
+        "name": "str",
+        "id": "int"
+      },
+      "primary_key": "id"
+    },
+    "orders": {
+      "name": "orders",
+      "schema": {
+        "oid": "int",
+        "user_uid": "int",
+        "product": "str",
+        "id": "int"
+      },
+      "primary_key": "id"
+    }
+  }
+}
