@@ -274,10 +274,7 @@ class QueryParser:
             if limit:
                 df = df.head(int(limit))
 
-            # Convertir le résultat en liste de dictionnaires
-            results = df.to_dict(orient='records')
-
-            return {"data": results, "count": len(results)}
+            return {"data": df}
 
         except Exception as e:
             return {"error": str(e)}
@@ -427,202 +424,81 @@ class QueryParser:
             # Fallback simple si shlex échoue
             return [arg.strip() for arg in args_str.split(',')]
         
-    #function pour le join
     def _execute_select_join(self, match):
-        """Exécute une commande SELECT avec JOIN."""
+        """Exécute une commande SELECT avec JOIN (version simplifiée avec pandas)."""
         fields_str = match.group(1)
         table_name = match.group(2)
         join_clause = match.group(3)
         where_clause = match.group(4)
         order_by = match.group(5)
         limit = match.group(6)
-        
+
         try:
-            # Récupérer la table principale
+            # Table principale
             main_table = self.database.get_table(table_name)
-            
-            # Parser la clause JOIN
+            df = pd.DataFrame(main_table.data)
+
+            # Détecter la jointure
             join_pattern = r'(INNER|LEFT|RIGHT)\s+JOIN\s+(\w+)\s+ON\s+(\w+)\.(\w+)\s*=\s*(\w+)\.(\w+)'
-            join_matches = re.finditer(join_pattern, join_clause, re.IGNORECASE)
-            
-            joins = []
-            for join_match in join_matches:
-                join_type = join_match.group(1).upper()
-                join_table_name = join_match.group(2)
-                left_table = join_match.group(3)
-                left_field = join_match.group(4)
-                right_table = join_match.group(5)
-                right_field = join_match.group(6)
-                
-                join_table = self.database.get_table(join_table_name)
-                joins.append({
-                    'type': join_type,
-                    'table': join_table,
-                    'table_name': join_table_name,
-                    'left_table': left_table,
-                    'left_field': left_field,
-                    'right_table': right_table,
-                    'right_field': right_field
-                })
-            
-            # Exécuter le JOIN
-            results = self._perform_join(main_table, table_name, joins)
-            
+            join_match = re.search(join_pattern, join_clause, re.IGNORECASE)
+            if not join_match:
+                return {"error": "Syntaxe JOIN invalide"}
+
+            join_type = join_match.group(1).upper()
+            join_table_name = join_match.group(2)
+            left_table = join_match.group(3)
+            left_field = join_match.group(4)
+            right_table = join_match.group(5)
+            right_field = join_match.group(6)
+
+            # Charger la table à joindre
+            join_table = self.database.get_table(join_table_name)
+            df_join = pd.DataFrame(join_table.data)
+
+            # Traduire le type de JOIN pour pandas
+            join_types = {"INNER": "inner", "LEFT": "left", "RIGHT": "right"}
+            how = join_types.get(join_type, "inner")
+
+            # Exécuter le JOIN avec pandas
+            df = pd.merge(
+                df,
+                df_join,
+                left_on=left_field,
+                right_on=right_field,
+                how=how,
+                suffixes=(f"_{table_name}", f"_{join_table_name}")
+            )
+
             # Appliquer WHERE si présent
             if where_clause:
+                # Très basique (ex: "age = 30")
                 conditions = self._parse_conditions(where_clause)
-                filtered_results = []
-                for result in results:
-                    match = True
-                    for field, value in conditions.items():
-                        # Gérer les champs avec préfixe table.field
-                        if '.' in field:
-                            if field not in result or result[field] != value:
-                                match = False
-                                break
-                        else:
-                            # Chercher dans tous les champs possibles
-                            found = False
-                            for key in result.keys():
-                                if key.endswith('.' + field) and result[key] == value:
-                                    found = True
-                                    break
-                            if not found:
-                                match = False
-                                break
-                    
-                    if match:
-                        filtered_results.append(result)
-                
-                results = filtered_results
-            
-            # Sélectionner les champs demandés
-            if fields_str.strip() != '*':
-                fields = [field.strip() for field in fields_str.split(',')]
-                selected_results = []
-                for result in results:
-                    selected_record = {}
-                    for field in fields:
-                        # Gérer les champs avec ou sans préfixe table.field
-                        if '.' in field:
-                            if field in result:
-                                selected_record[field] = result[field]
-                        else:
-                            # Chercher dans tous les champs possibles
-                            for key in result.keys():
-                                if key.endswith('.' + field):
-                                    selected_record[field] = result[key]
-                                    break
-                    selected_results.append(selected_record)
-                results = selected_results
-            
-            # Appliquer ORDER BY si présent
+                for field, value in conditions.items():
+                    # Retirer guillemets autour de value si présents
+                    if isinstance(value, str):
+                        value = value.strip("'\"")
+                    if field in df.columns:
+                        df = df[df[field] == value]
+
+            # Sélectionner les colonnes
+            if fields_str.strip() != "*":
+                fields = [f.strip() for f in fields_str.split(",")]
+                df = df[fields]
+
+            # ORDER BY
             if order_by:
-                field, *direction = order_by.strip().split()
-                reverse = direction and direction[0].upper() == 'DESC'
-                # Gérer les champs avec ou sans préfixe
-                if '.' not in field:
-                    # Chercher le champ avec préfixe
-                    for key in results[0].keys() if results else []:
-                        if key.endswith('.' + field):
-                            field = key
-                            break
-                results.sort(key=lambda x: x.get(field), reverse=reverse)
-            
-            # Appliquer LIMIT si présent
+                parts = order_by.strip().split()
+                field = parts[0]
+                ascending = not (len(parts) > 1 and parts[1].upper() == "DESC")
+                if field in df.columns:
+                    df = df.sort_values(by=field, ascending=ascending)
+
+            # LIMIT
             if limit:
-                results = results[:int(limit)]
-            
-            return {"data": results, "count": len(results)}
+                df = df.head(int(limit))
+
+            # Retourner les résultats
+            return {"data": df}
+
         except Exception as e:
             return {"error": str(e)}
-    
-    def _perform_join(self, main_table, main_table_name, joins):
-        """Effectue les jointures entre tables."""
-        # Commencer avec tous les enregistrements de la table principale
-        results = []
-        for main_record in main_table.data:
-            # Préfixer les champs avec le nom de la table
-            prefixed_main = {f"{main_table_name}.{k}": v for k, v in main_record.items()}
-            
-            # Pour chaque jointure
-            current_results = [prefixed_main]
-            
-            for join in joins:
-                new_results = []
-                
-                for current_record in current_results:
-                    # Déterminer quelle table est la gauche et la droite
-                    if join['left_table'] == main_table_name:
-                        left_key = f"{main_table_name}.{join['left_field']}"
-                        left_value = current_record.get(left_key)
-                        
-                        # Chercher les enregistrements correspondants dans la table de jointure
-                        matching_records = [r for r in join['table'].data 
-                                          if r.get(join['right_field']) == left_value]
-                        
-                    else:
-                        # La table de jointure est à gauche
-                        right_key = f"{join['table_name']}.{join['right_field']}"
-                        
-                        # Trouver la valeur à matcher depuis current_record
-                        left_value = None
-                        for key, value in current_record.items():
-                            if key.endswith('.' + join['left_field']):
-                                left_value = value
-                                break
-                        
-                        # Chercher les enregistrements correspondants
-                        matching_records = [r for r in join['table'].data 
-                                          if r.get(join['right_field']) == left_value]
-                    
-                    # Appliquer le type de jointure
-                    if join['type'] == 'INNER':
-                        # INNER JOIN: ne garder que si match trouvé
-                        for match_record in matching_records:
-                            merged_record = current_record.copy()
-                            # Préfixer les champs de la table jointe
-                            for k, v in match_record.items():
-                                merged_record[f"{join['table_name']}.{k}"] = v
-                            new_results.append(merged_record)
-                    
-                    elif join['type'] == 'LEFT':
-                        # LEFT JOIN: garder l'enregistrement même sans match
-                        if matching_records:
-                            for match_record in matching_records:
-                                merged_record = current_record.copy()
-                                for k, v in match_record.items():
-                                    merged_record[f"{join['table_name']}.{k}"] = v
-                                new_results.append(merged_record)
-                        else:
-                            # Ajouter NULL pour les champs de la table jointe
-                            merged_record = current_record.copy()
-                            for field in join['table'].schema.keys():
-                                merged_record[f"{join['table_name']}.{field}"] = None
-                            new_results.append(merged_record)
-                    
-                    elif join['type'] == 'RIGHT':
-                        # RIGHT JOIN: pour chaque enregistrement de la table de droite
-                        if not matching_records:
-                            # Si pas de match, créer un enregistrement avec NULL à gauche
-                            for right_record in join['table'].data:
-                                merged_record = {}
-                                # NULL pour la table de gauche
-                                for field in main_table.schema.keys():
-                                    merged_record[f"{main_table_name}.{field}"] = None
-                                # Valeurs de la table de droite
-                                for k, v in right_record.items():
-                                    merged_record[f"{join['table_name']}.{k}"] = v
-                                new_results.append(merged_record)
-                        else:
-                            for match_record in matching_records:
-                                merged_record = current_record.copy()
-                                for k, v in match_record.items():
-                                    merged_record[f"{join['table_name']}.{k}"] = v
-                                new_results.append(merged_record)
-                
-                current_results = new_results
-            
-            results.extend(current_results)
-        
-        return results

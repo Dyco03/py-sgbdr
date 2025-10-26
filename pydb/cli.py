@@ -2,6 +2,7 @@
 import cmd
 import os
 import sys
+from tabulate import tabulate
 from .database import Database
 from .query import QueryParser
 from .storage import StorageManager
@@ -134,36 +135,14 @@ class PyDBShell(cmd.Cmd):
                 print(result["success"])
             elif "data" in result:
                 # Afficher les résultats sous forme de tableau
-                data = result["data"]
-                if not data:
+                df = result["data"]
+                if df.empty:
                     print("Aucun résultat")
                     return
+                print('\n')
+                print(tabulate(df, headers="keys", tablefmt="psql", showindex=False))
                 
-                # Trouver toutes les colonnes
-                columns = set()
-                for record in data:
-                    columns.update(record.keys())
-                columns = sorted(list(columns))
-                
-                # Calculer la largeur de chaque colonne
-                col_widths = {col: len(col) for col in columns}
-                for record in data:
-                    for col in columns:
-                        val = str(record.get(col, ""))
-                        col_widths[col] = max(col_widths[col], len(val))
-                
-                # Afficher l'en-tête
-                header = " | ".join(col.ljust(col_widths[col]) for col in columns)
-                separator = "-+-".join("-" * col_widths[col] for col in columns)
-                print(header)
-                print(separator)
-                
-                # Afficher les données
-                for record in data:
-                    row = " | ".join(str(record.get(col, "")).ljust(col_widths[col]) for col in columns)
-                    print(row)
-                
-                print(f"\n{result['count']} enregistrement(s) trouvé(s)")
+                print(f"\n{len(df)} enregistrement(s) trouvé(s)")
         except Exception as e:
             print(f"Erreur: {str(e)}")
     
