@@ -278,108 +278,6 @@ class QueryParser:
 
         except Exception as e:
             return {"error": str(e)}
-
-    
-    def _execute_create_relation(self, match):
-        """Exécute une commande CREATE RELATION."""
-        relation_name = match.group(1)
-        source_table_name = match.group(2)
-        source_field = match.group(3)
-        target_table_name = match.group(4)
-        target_field = match.group(5)
-        relation_type = match.group(6).lower()
-        # Niharison Dyco Miasa will become the best programmer in the world
-        try:
-            # Récupérer les tables
-            source_table = self.database.get_table(source_table_name)
-            target_table = self.database.get_table(target_table_name)
-            
-            # Valider le type de relation
-            valid_types = ['one_to_one', 'one_to_many', 'many_to_many']
-            if relation_type not in valid_types:
-                return {"error": f"Type de relation non valide. Utilisez: {', '.join(valid_types)}"}
-            
-            # Créer la relation
-            from .relation import Relation
-            relation = Relation(
-                source_table=source_table,
-                target_table=target_table,
-                relation_type=relation_type,
-                source_field=source_field,
-                target_field=target_field
-            )
-            
-            # Stocker la relation dans les métadonnées
-            if not hasattr(self.database, 'relations'):
-                self.database.relations = {}
-            
-            self.database.relations[relation_name] = relation
-            
-            return {"success": f"Relation '{relation_name}' créée avec succès"}
-        except Exception as e:
-            return {"error": str(e)}
-    
-    def _execute_link(self, match):
-        """Exécute une commande LINK pour lier deux enregistrements."""
-        source_table_name = match.group(1)
-        source_field = match.group(2)
-        source_value = match.group(3)
-        target_table_name = match.group(4)
-        target_field = match.group(5)
-        target_value = match.group(6)
-        
-        try:
-            # Récupérer les tables
-            source_table = self.database.get_table(source_table_name)
-            target_table = self.database.get_table(target_table_name)
-            
-            # Trouver les relations correspondantes
-            relation = None
-            if hasattr(self.database, 'relations'):
-                for rel in self.database.relations.values():
-                    if (rel.source_table.name == source_table_name and 
-                        rel.target_table.name == target_table_name):
-                        relation = rel
-                        break
-            
-            if not relation:
-                return {"error": "Aucune relation trouvée entre ces tables"}
-            
-            # Récupérer les enregistrements
-            source_records = source_table.select({source_field: self._parse_value(source_value)})
-            target_records = target_table.select({target_field: self._parse_value(target_value)})
-            
-            if not source_records:
-                return {"error": f"Aucun enregistrement trouvé dans {source_table_name} avec {source_field}={source_value}"}
-            
-            if not target_records:
-                return {"error": f"Aucun enregistrement trouvé dans {target_table_name} avec {target_field}={target_value}"}
-            
-            # Lier les enregistrements
-            relation.link(source_records[0], target_records[0])
-            
-            return {"success": "Enregistrements liés avec succès"}
-        except Exception as e:
-            return {"error": str(e)}
-    
-    def _parse_conditions(self, where_clause):
-        """Parse une clause WHERE en dictionnaire de conditions."""
-        if not where_clause:
-            return {}
-        
-        conditions = {}
-        parts = where_clause.split(' AND ')
-        
-        for part in parts:
-            if '=' not in part:
-                continue
-            
-            field, value = part.split('=', 1)
-            field = field.strip()
-            value = self._parse_value(value.strip())
-            conditions[field] = value
-        
-        return conditions
     
     def _parse_values(self, values_str):
         """Parse une chaîne de valeurs séparées par des virgules."""
@@ -412,17 +310,6 @@ class QueryParser:
             return value_str[1:-1]
         
         return value_str
-    
-    def _split_args(self, args_str):
-        """Divise une chaîne d'arguments en respectant les parenthèses et les guillemets."""
-        if not args_str:
-            return []
-        
-        try:
-            return shlex.split(args_str.replace(',', ' , ').replace('(', ' ( ').replace(')', ' ) '))
-        except ValueError:
-            # Fallback simple si shlex échoue
-            return [arg.strip() for arg in args_str.split(',')]
         
     def _execute_select_join(self, match):
         """Exécute une commande SELECT avec JOIN (version simplifiée avec pandas)."""
