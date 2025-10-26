@@ -46,15 +46,7 @@ class QueryParser:
         select_match = re.match(r'SELECT\s+(.*?)\s+FROM\s+(\w+)(?:\s+WHERE\s+(.*?))?(?:\s+ORDER\s+BY\s+(.*?))?(?:\s+LIMIT\s+(\d+))?;', query_string, re.IGNORECASE)
         if select_match:
             return self._execute_select(select_match)
-        
-        create_relation_match = re.match(r'CREATE\s+RELATION\s+(\w+)\s+BETWEEN\s+(\w+)\((\w+)\)\s+AND\s+(\w+)\((\w+)\)\s+TYPE\s+(\w+);', query_string, re.IGNORECASE)
-        if create_relation_match:
-            return self._execute_create_relation(create_relation_match)
-        
-        link_match = re.match(r'LINK\s+(\w+)\s+\((\w+)=(\w+)\)\s+TO\s+(\w+)\s+\((\w+)=(\w+)\);', query_string, re.IGNORECASE)
-        if link_match:
-            return self._execute_link(link_match)
-        
+
         # Pattern pour SELECT avec JOIN
         select_join_match = re.match(
             r'SELECT\s+(.*?)\s+FROM\s+(\w+)\s+((?:INNER|LEFT|RIGHT)\s+JOIN\s+\w+\s+ON\s+.*?)(?:\s+WHERE\s+(.*?))?(?:\s+ORDER\s+BY\s+(.*?))?(?:\s+LIMIT\s+(\d+))?;',
@@ -138,6 +130,8 @@ class QueryParser:
                 columns = table.schema.keys()
             
             values = values_str.split(',')
+            
+            
             
             if len(columns) != len(values):
                 return {"error": f"Le nombre de colonnes {columns} et de valeurs {values} ne correspond pas"}
