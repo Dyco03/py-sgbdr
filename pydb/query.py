@@ -120,6 +120,7 @@ class QueryParser:
         columns_str = match.group(3)
         values_str = match.group(4)
         
+        
         try:
             table = self.database.get_table(table_name)
             
@@ -157,7 +158,7 @@ class QueryParser:
             table = self.database.get_table(table_name)
             df = pd.DataFrame(table.data)  # table.data = liste de dicts
 
-            # ---- Parser la clause SET ----
+            #  Parser la clause SET
             updates = {}
             for item in set_clause.split(','):
                 parts = item.split('=', 1)
@@ -167,7 +168,7 @@ class QueryParser:
                 value = self._parse_value(parts[1].strip())
                 updates[col_name] = value
 
-            # ---- Construire le masque WHERE ----
+            #  Construire le masque WHERE 
             if where_clause:
                 query_str = where_clause.replace("AND", "and").replace("OR", "or").replace("=", "==")
                 mask = df.eval(query_str)  # masque booléen pandas
@@ -178,11 +179,11 @@ class QueryParser:
             if not mask.any():
                 return {"error": "Aucun enregistrement trouvé correspondant aux conditions"}
 
-            # ---- Appliquer les mises à jour ----
+            #  Appliquer les mises à jour 
             for col, val in updates.items():
                 df.loc[mask, col] = val
 
-            # ---- Écrire les changements dans la table originale ----
+            #  Écrire les changements dans la table originale 
             table.data = df.to_dict(orient="records")
 
             return {"success": f"{mask.sum()} enregistrement(s) mis à jour"}
@@ -205,7 +206,7 @@ class QueryParser:
             if df.empty:
                 return {"error": "Aucune donnée à supprimer"}
 
-            # ---- Si pas de WHERE  tout supprimer ----
+            #  Si pas de WHERE  tout supprimer 
             if not where_clause:
                 count = len(df)
                 table.data = []  # vider complètement
@@ -213,17 +214,17 @@ class QueryParser:
                 table._save()
                 return {"success": f"{count} enregistrement(s) supprimé(s)"}
 
-            # ---- Construire le masque WHERE ----
+            #  Construire le masque WHERE 
             query_str = where_clause.replace("AND", "and").replace("OR", "or").replace('=', '==')
             mask = df.eval(query_str)  # lignes à supprimer
 
             if not mask.any():
                 return {"error": "Aucun enregistrement trouvé correspondant aux conditions"}
 
-            # ---- Supprimer les lignes correspondantes ----
+            #  Supprimer les lignes correspondantes 
             df = df[~mask]  # supprime les lignes ou masque = true
 
-            # ---- Réécrire les données dans la table ----
+            #  Réécrire les données dans la table 
             table.data = df.to_dict(orient="records")
             table._save()
 
@@ -255,6 +256,10 @@ class QueryParser:
             # Sélectionner les champs demandés
             if fields_str.strip() != '*':
                 fields = [f.strip() for f in fields_str.split(',')]
+                for field in fields:
+                    if field not in table.schema:
+                        raise ValueError(f"Le champ '{field}' n'existe pas dans le schéma")
+                    
                 df = df[fields]
 
             # Appliquer ORDER BY si présent
